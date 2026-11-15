@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>J.A.R.V.I.S.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="scanlines"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <div>
+        <h1>J.A.R.V.I.S.</h1>
+        <small>Just A Rather Very Intelligent System</small>
+      </div>
+    </div>
+    <div class="systems">
+      <span class="sys" id="sys-ai"><i></i>KI-KERN</span>
+      <span class="sys" id="sys-voice"><i></i>STIMME</span>
+      <span class="sys" id="sys-mail"><i></i>POSTFACH</span>
+    </div>
+    <div class="clock">
+      <div id="clock-time">--:--</div>
+      <div id="clock-date">---</div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel left">
+      <section class="card">
+        <header><span class="corner"></span>ZIELE<span class="count" id="goal-count">0</span></header>
+        <ul id="goal-list" class="list"><li class="empty">Noch keine Ziele. Sag mir, was du erreichen willst.</li></ul>
+      </section>
+      <section class="card">
+        <header><span class="corner"></span>SYSTEM</header>
+        <div class="stats">
+          <div><label>STATUS</label><span id="state-label">BEREIT</span></div>
+          <div><label>MODUS</label><span id="mode-label">MANUELL</span></div>
+          <div><label>PROTOKOLL</label><span id="activity">—</span></div>
+        </div>
+        <div class="bars"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      </section>
+    </aside>
+
+    <section class="center">
+      <div id="orb" class="orb" title="Klicken oder Leertaste zum Sprechen"></div>
+      <div class="caption">
+        <div id="transcript" class="transcript"></div>
+        <div id="hint" class="hint">KLICKE DEN ORB ODER DRÜCKE <kbd>LEERTASTE</kbd></div>
+      </div>
+    </section>
+
+    <aside class="panel right">
+      <section class="card">
+        <header><span class="corner"></span>POSTEINGANG<span class="count" id="mail-count">–</span></header>
+        <ul id="mail-list" class="list"><li class="empty">Lade …</li></ul>
+      </section>
+      <section class="card log-card">
+        <header><span class="corner"></span>KOMMUNIKATION</header>
+        <div id="log" class="log"></div>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="console">
+    <button id="wake-btn" class="chip" type="button" title="Dauerhaft zuhören und auf „Jarvis“ reagieren">WAKE-WORD: AUS</button>
+    <form id="text-form">
+      <span class="prompt">&gt;</span>
+      <input id="text-input" autocomplete="off" placeholder="Befehl eingeben …" />
+      <button type="submit" class="chip">SENDEN</button>
+    </form>
+    <button id="reset-btn" class="chip" type="button" title="Gespräch zurücksetzen">RESET</button>
+  </footer>
+
+  <script src="vendor/three.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
