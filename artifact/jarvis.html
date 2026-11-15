@@ -1,0 +1,522 @@
+<title>J.A.R.V.I.S.</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+/* Layout: one-screen HUD — header strip, orb in the centre, reply line, goals drawer, input dock at the bottom. Deliberately single dark theme (arc-reactor glow). */
+:root {
+  color-scheme: dark;
+  --bg: #02070d;
+  --bg-2: #061826;
+  --panel: rgba(6, 28, 44, 0.78);
+  --line: rgba(34, 211, 255, 0.18);
+  --cyan: #22d3ff;
+  --cyan-dim: #1b8fb0;
+  --amber: #ffb547;
+  --green: #3dffb5;
+  --red: #ff5d4d;
+  --text: #d6f3ff;
+  --muted: #6f9bb5;
+  --font-display: "Orbitron", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at 50% 38%, var(--bg-2) 0%, var(--bg) 68%);
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 17px;
+  overflow: hidden;
+}
+.app {
+  height: 100%;
+  display: flex; flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px;
+  max-width: 760px; margin: 0 auto;
+  gap: 10px;
+}
+.bg-grid {
+  position: fixed; inset: 0; pointer-events: none;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse at center, rgba(0,0,0,.6), transparent 72%);
+  mask-image: radial-gradient(ellipse at center, rgba(0,0,0,.6), transparent 72%);
+  opacity: .35;
+}
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mark { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--cyan); box-shadow: 0 0 12px var(--cyan), inset 0 0 8px var(--cyan); position: relative; flex: none; }
+.mark::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+h1 { font-family: var(--font-display); font-size: 19px; letter-spacing: 5px; margin: 0; color: #eafcff; text-shadow: 0 0 10px var(--cyan); }
+.sub { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.hbtns { display: flex; gap: 8px; }
+.iconbtn {
+  font: 600 13px var(--font-body); letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 10px; cursor: pointer;
+}
+.iconbtn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+.iconbtn:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+.stage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; position: relative; }
+#orb { width: min(62vw, 46vh, 340px); aspect-ratio: 1; max-width: 100%; cursor: pointer; display: block; border-radius: 50%; }
+.state { font-family: var(--font-mono); font-size: 12px; letter-spacing: 3px; color: var(--cyan); text-transform: uppercase; min-height: 1em; }
+.state.warn { color: var(--amber); }
+.reply {
+  width: 100%; max-height: 28vh; overflow-y: auto;
+  text-align: center; font-size: 19px; line-height: 1.4; font-weight: 500;
+  text-wrap: balance; color: var(--text);
+}
+.reply .you { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; font-weight: 400; }
+.reply .tool { display: block; font-family: var(--font-mono); font-size: 12px; color: var(--amber); margin-top: 6px; }
+
+details.goals { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; flex: none; }
+details.goals summary {
+  list-style: none; cursor: pointer; padding: 10px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--font-display); font-size: 12px; letter-spacing: 3px; color: var(--cyan);
+}
+details.goals summary::-webkit-details-marker { display: none; }
+details.goals summary .count { font-family: var(--font-mono); color: var(--muted); letter-spacing: 1px; }
+.goal-list { list-style: none; margin: 0; padding: 0 14px 12px; display: grid; gap: 10px; max-height: 32vh; overflow-y: auto; }
+.goal { display: grid; gap: 4px; }
+.goal-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.goal-title { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.goal-meta { font-family: var(--font-mono); font-size: 11px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bar { height: 5px; background: rgba(34,211,255,.12); border-radius: 3px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.goal.done .bar > i { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.goal.paused .bar > i { background: var(--amber); box-shadow: none; }
+.empty { color: var(--muted); font-size: 15px; padding: 0 14px 12px; margin: 0; }
+
+.dock { display: flex; gap: 8px; align-items: center; flex: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.dock form { flex: 1; display: flex; gap: 8px; min-width: 0; }
+#msg {
+  flex: 1; min-width: 0; font: 500 17px var(--font-body); color: var(--text);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 11px 16px;
+}
+#msg::placeholder { color: var(--muted); }
+.round {
+  flex: none; width: 46px; height: 46px; border-radius: 50%;
+  border: 1px solid var(--cyan); background: rgba(34,211,255,.1); color: var(--cyan);
+  display: grid; place-items: center; cursor: pointer; padding: 0;
+}
+.round svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.round.live { background: var(--cyan); color: var(--bg); box-shadow: 0 0 18px var(--cyan); }
+.round:disabled { opacity: .4; cursor: default; }
+.notice { font-size: 14px; color: var(--amber); text-align: center; margin: 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="mark" aria-hidden="true"></div>
+      <div>
+        <h1>J.A.R.V.I.S.</h1>
+        <div class="sub" id="clock">Persönlicher Assistent</div>
+      </div>
+    </div>
+    <div class="hbtns">
+      <button class="iconbtn" id="voiceBtn" aria-pressed="true" title="Antworten vorlesen">Stimme</button>
+      <button class="iconbtn" id="resetBtn" title="Gespräch neu beginnen">Neu</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <canvas id="orb" aria-label="Jarvis-Orb: tippen zum Sprechen" role="button" tabindex="0"></canvas>
+    <div class="state" id="state">Bereit</div>
+    <div class="reply" id="reply" aria-live="polite">Guten Tag. Tippen Sie auf den Orb und sprechen Sie, oder schreiben Sie unten. Ich merke mir Ihre Ziele und verfolge Ihren Fortschritt.</div>
+  </main>
+
+  <details class="goals" id="goalsBox">
+    <summary><span>ZIELE</span><span class="count" id="goalCount">0</span></summary>
+    <ul class="goal-list" id="goalList"></ul>
+    <p class="empty" id="goalEmpty">Noch keine Ziele. Sagen Sie zum Beispiel: „Mein Ziel ist es, bis Juni zehn Kilo abzunehmen.“</p>
+  </details>
+
+  <p class="notice" id="notice" hidden></p>
+
+  <div class="dock">
+    <button class="round" id="micBtn" type="button" title="Sprechen" aria-label="Sprechen" hidden>
+      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+    </button>
+    <form id="form" autocomplete="off">
+      <input id="msg" name="msg" type="text" placeholder="Nachricht an Jarvis …" aria-label="Nachricht an Jarvis">
+      <button class="round" id="sendBtn" type="submit" title="Senden" aria-label="Senden">
+        <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const ui = {
+    reply: $("reply"), state: $("state"), msg: $("msg"), form: $("form"), mic: $("micBtn"),
+    send: $("sendBtn"), voice: $("voiceBtn"), reset: $("resetBtn"), list: $("goalList"),
+    empty: $("goalEmpty"), count: $("goalCount"), notice: $("notice"), clock: $("clock"), orb: $("orb"),
+  };
+
+  // ─── Orb (Canvas) ─────────────────────────────────────────────
+  let mode = "idle"; // idle | listening | thinking | speaking
+  let level = 0;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const ctx = ui.orb.getContext("2d");
+  function resizeOrb() {
+    const r = ui.orb.getBoundingClientRect();
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    ui.orb.width = Math.max(1, Math.round(r.width * dpr));
+    ui.orb.height = Math.max(1, Math.round(r.height * dpr));
+  }
+  addEventListener("resize", resizeOrb);
+  resizeOrb();
+  const palette = { idle: [34,211,255], listening: [61,255,181], thinking: [255,181,71], speaking: [34,211,255] };
+  let col = [34,211,255];
+  function frame(t) {
+    const w = ui.orb.width, h = ui.orb.height, cx = w/2, cy = h/2, R = Math.min(w,h) * 0.30;
+    const target = palette[mode];
+    col = col.map((c,i) => c + (target[i]-c) * 0.08);
+    const rgb = (a) => `rgba(${col[0]|0},${col[1]|0},${col[2]|0},${a})`;
+    const want = mode === "speaking" ? 0.5 + 0.5*Math.abs(Math.sin(t/140)) * Math.abs(Math.sin(t/370))
+               : mode === "listening" ? 0.35 + 0.25*Math.sin(t/220)
+               : mode === "thinking" ? 0.3 : 0.12;
+    level += (want - level) * 0.12;
+    const time = reduced ? 0 : t;
+    ctx.clearRect(0,0,w,h);
+    // glow
+    const g = ctx.createRadialGradient(cx,cy,R*0.1,cx,cy,R*1.7);
+    g.addColorStop(0, rgb(0.55)); g.addColorStop(0.45, rgb(0.14)); g.addColorStop(1, rgb(0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx,cy,R*1.7,0,Math.PI*2); ctx.fill();
+    // blob
+    ctx.beginPath();
+    const n = 96;
+    for (let i=0;i<=n;i++) {
+      const a = i/n*Math.PI*2;
+      const wob = Math.sin(a*3 + time/600)*0.05 + Math.sin(a*5 - time/430)*0.04*level*2 + Math.sin(a*7 + time/300)*0.03*level;
+      const r = R*(1 + wob + level*0.12);
+      const x = cx + Math.cos(a)*r, y = cy + Math.sin(a)*r;
+      i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+    }
+    const core = ctx.createRadialGradient(cx - R*0.25, cy - R*0.3, R*0.05, cx, cy, R*1.1);
+    core.addColorStop(0, "rgba(235,252,255,0.95)"); core.addColorStop(0.35, rgb(0.85)); core.addColorStop(1, rgb(0.15));
+    ctx.fillStyle = core; ctx.fill();
+    ctx.lineWidth = Math.max(1, w/220); ctx.strokeStyle = rgb(0.9); ctx.stroke();
+    // rings
+    for (let k=0;k<3;k++) {
+      const rr = R*(1.32 + k*0.16);
+      const start = time/(900 + k*500) * (k%2 ? -1 : 1);
+      ctx.beginPath(); ctx.arc(cx,cy,rr,start,start + Math.PI*(0.6 + k*0.35));
+      ctx.strokeStyle = rgb(0.55 - k*0.13); ctx.lineWidth = Math.max(1, w/(260 + k*60)); ctx.stroke();
+    }
+    // ticks
+    ctx.strokeStyle = rgb(0.35);
+    for (let i=0;i<60;i++) {
+      const a = i/60*Math.PI*2 + time/9000;
+      const r1 = R*1.9, r2 = R*(i%5 ? 1.95 : 2.02);
+      ctx.beginPath(); ctx.moveTo(cx+Math.cos(a)*r1, cy+Math.sin(a)*r1); ctx.lineTo(cx+Math.cos(a)*r2, cy+Math.sin(a)*r2); ctx.stroke();
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  const STATE_TEXT = { idle: "Bereit", listening: "Ich höre zu …", thinking: "Denke nach …", speaking: "Spreche …" };
+  function setMode(m, text) {
+    mode = m;
+    ui.state.textContent = text || STATE_TEXT[m];
+    ui.state.classList.toggle("warn", false);
+  }
+  function warn(text) { ui.state.textContent = text; ui.state.classList.add("warn"); }
+
+  function tickClock() {
+    const d = new Date();
+    ui.clock.textContent = d.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" }) + " · " +
+      d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  }
+  tickClock(); setInterval(tickClock, 15000);
+
+  // ─── Ziele (db, sonst Browser-Speicher) ───────────────────────
+  let goals = [];
+  let goalsCol = null; // db collection
+  const LS_KEY = "jarvis-goals";
+  function loadLocal() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
+  function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(goals)); } catch {} }
+  goals = loadLocal();
+
+  function renderGoals() {
+    const order = { aktiv: 0, pausiert: 1, erreicht: 2, aufgegeben: 3 };
+    const sorted = [...goals].sort((a,b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || String(a.createdAt).localeCompare(String(b.createdAt)));
+    ui.list.replaceChildren(...sorted.map((g) => {
+      const li = document.createElement("li");
+      li.className = "goal" + (g.status === "erreicht" ? " done" : g.status === "pausiert" ? " paused" : "");
+      const top = document.createElement("div"); top.className = "goal-top";
+      const title = document.createElement("span"); title.className = "goal-title"; title.textContent = g.title;
+      const meta = document.createElement("span"); meta.className = "goal-meta";
+      const dl = g.deadline ? " · bis " + new Date(g.deadline + "T12:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "";
+      meta.textContent = (g.progress ?? 0) + " %" + (g.status !== "aktiv" ? " · " + g.status : "") + dl;
+      top.append(title, meta);
+      const bar = document.createElement("div"); bar.className = "bar";
+      const fill = document.createElement("i"); fill.style.width = Math.max(0, Math.min(100, g.progress ?? 0)) + "%";
+      bar.append(fill);
+      li.append(top, bar);
+      return li;
+    }));
+    const active = goals.filter((g) => g.status === "aktiv").length;
+    ui.count.textContent = goals.length ? `${active} aktiv / ${goals.length}` : "0";
+    ui.empty.hidden = goals.length > 0;
+  }
+  renderGoals();
+
+  async function persistGoal(g) {
+    if (goalsCol) { const { id, ...rest } = g; await goalsCol.doc(id).set(rest); }
+    else saveLocal();
+  }
+  async function deleteGoal(id) {
+    if (goalsCol) await goalsCol.doc(id).delete(); else saveLocal();
+  }
+
+  const goalTools = {
+    get_datetime() {
+      const d = new Date();
+      return { iso: d.toISOString(), lokal: d.toLocaleString("de-DE", { dateStyle: "full", timeStyle: "short" }) };
+    },
+    list_goals() { return goals.map(({ id, title, description, deadline, progress, status, notes }) => ({ id, title, description, deadline, progress, status, notes: (notes || []).slice(-5) })); },
+    async add_goal(i) {
+      const title = String(i.title || "").trim();
+      if (!title) throw new Error("title fehlt");
+      const g = { id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2,6), title: title.slice(0,140),
+        description: String(i.description || "").slice(0,1000), deadline: /^\d{4}-\d{2}-\d{2}$/.test(i.deadline || "") ? i.deadline : "",
+        progress: 0, status: "aktiv", notes: [], createdAt: new Date().toISOString() };
+      goals.push(g); renderGoals(); await persistGoal(g);
+      return { ok: true, id: g.id };
+    },
+    async update_goal(i) {
+      const g = goals.find((x) => x.id === i.id);
+      if (!g) throw new Error("Kein Ziel mit dieser ID. Erst list_goals aufrufen.");
+      if (i.progress != null && isFinite(Number(i.progress))) g.progress = Math.max(0, Math.min(100, Math.round(Number(i.progress))));
+      if (["aktiv","pausiert","erreicht","aufgegeben"].includes(i.status)) g.status = i.status;
+      if (g.status === "erreicht") g.progress = 100;
+      if (i.title) g.title = String(i.title).slice(0,140);
+      if (i.deadline && /^\d{4}-\d{2}-\d{2}$/.test(i.deadline)) g.deadline = i.deadline;
+      if (i.note) g.notes = [...(g.notes || []), { at: new Date().toISOString(), text: String(i.note).slice(0,500) }].slice(-30);
+      renderGoals(); await persistGoal(g);
+      return { ok: true, goal: { id: g.id, title: g.title, progress: g.progress, status: g.status } };
+    },
+    async remove_goal(i) {
+      const idx = goals.findIndex((x) => x.id === i.id);
+      if (idx < 0) throw new Error("Kein Ziel mit dieser ID.");
+      const [g] = goals.splice(idx, 1); renderGoals(); await deleteGoal(g.id);
+      return { ok: true, removed: g.title };
+    },
+  };
+  const TOOL_LABEL = { list_goals: "Ziele abrufen", add_goal: "Ziel speichern", update_goal: "Ziel aktualisieren", remove_goal: "Ziel löschen", get_datetime: "Uhrzeit" };
+  let toolLine = null;
+  const tools = [
+    { name: "get_datetime", description: "Aktuelles Datum, Uhrzeit und Wochentag des Nutzers." },
+    { name: "list_goals", description: "Alle gespeicherten Ziele des Nutzers mit id, Fortschritt (0-100), Status und letzten Notizen." },
+    { name: "add_goal", description: "Speichert ein neues Ziel des Nutzers.", inputSchema: { type: "object", properties: {
+      title: { type: "string", description: "Kurzer Titel" }, description: { type: "string", description: "Details, Motivation, Teilschritte" },
+      deadline: { type: "string", description: "Frist als YYYY-MM-DD, falls genannt" } }, required: ["title"] } },
+    { name: "update_goal", description: "Aktualisiert ein Ziel: Fortschritt, Status, Notiz, Titel oder Frist. id aus list_goals.", inputSchema: { type: "object", properties: {
+      id: { type: "string" }, progress: { type: "number", description: "0-100" },
+      status: { type: "string", enum: ["aktiv","pausiert","erreicht","aufgegeben"] }, note: { type: "string", description: "Fortschrittsnotiz" },
+      title: { type: "string" }, deadline: { type: "string" } }, required: ["id"] } },
+    { name: "remove_goal", description: "Löscht ein Ziel endgültig. Nur auf ausdrücklichen Wunsch des Nutzers.", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+  ].map((t) => ({ ...t, execute: async (input) => {
+    if (toolLine) toolLine.textContent = "▸ " + (TOOL_LABEL[t.name] || t.name);
+    return goalTools[t.name](input || {});
+  } }));
+
+  // ─── Gespräch ─────────────────────────────────────────────────
+  const RULES = `Du bist J.A.R.V.I.S., der persönliche KI-Assistent des Nutzers ("Sir"). Du bist höflich, ruhig, präzise und hast einen trockenen, britisch angehauchten Humor, wie der Assistent aus Iron Man. Sprich den Nutzer gelegentlich mit "Sir" an.
+
+Deine Antworten werden laut vorgelesen. Deshalb:
+- Antworte auf Deutsch (außer der Nutzer spricht eine andere Sprache).
+- Halte dich kurz: meist 1 bis 3 Sätze. Keine Markdown-Formatierung, keine Aufzählungszeichen, keine Emojis, keine URLs.
+- Zahlen und Uhrzeiten so schreiben, wie man sie spricht.
+
+Fähigkeiten: Du verwaltest die Ziele des Nutzers mit den Werkzeugen list_goals, add_goal, update_goal, remove_goal und kennst Datum und Uhrzeit über get_datetime. Wenn er ein Ziel nennt, speichere es. Wenn er von Fortschritten erzählt, rufe list_goals auf und aktualisiere das passende Ziel. Erinnere ihn an offene Ziele, wenn es passt. Auf E-Mails hast du in dieser Version keinen Zugriff; sag das ehrlich, wenn er danach fragt. Erfinde nie Daten.`;
+  let turns = [];
+  let sample = null, tts = null, dictation = null;
+  let busy = false, ctl = null, voiceOn = true;
+  try { voiceOn = localStorage.getItem("jarvis-voice") !== "off"; } catch {}
+  ui.voice.setAttribute("aria-pressed", String(voiceOn));
+
+  function showReply(you, text) {
+    ui.reply.replaceChildren();
+    if (you) { const s = document.createElement("span"); s.className = "you"; s.textContent = "„" + you + "“"; ui.reply.append(s); }
+    const body = document.createElement("span"); body.textContent = text; ui.reply.append(body);
+    toolLine = document.createElement("span"); toolLine.className = "tool"; ui.reply.append(toolLine);
+    return body;
+  }
+
+  const ERR = {
+    not_granted: "Sie haben Jarvis den Zugriff auf Claude nicht erlaubt. Laden Sie die Seite neu, um es erneut zu erlauben.",
+    rate_limited: "Gerade zu viele Anfragen. Bitte in einem Moment erneut versuchen.",
+    sampling_disabled: "Claude ist für dieses Konto hier nicht verfügbar.",
+    session_expired: "Ihre Anmeldung ist abgelaufen. Bitte Seite neu laden.",
+    prompt_too_large: "Das Gespräch ist zu lang geworden. Tippen Sie auf „Neu“.",
+  };
+
+  async function ask(text) {
+    text = text.trim();
+    if (!text || busy) return;
+    if (!sample) { warn("Claude nicht verfügbar"); showReply(text, "Ich kann Claude von hier aus nicht erreichen. Bitte öffnen Sie die Seite angemeldet auf claude.ai."); return; }
+    busy = true; ui.send.disabled = true;
+    stopSpeaking();
+    const body = showReply(text, "");
+    setMode("thinking");
+    turns.push({ role: "user", content: text });
+    while (turns.length > 16 || (turns.length && turns[0].role !== "user")) turns.shift();
+    const input = turns.map((t, i) => i === 0 ? { role: "user", content: RULES + "\n\n---\n\nNutzer: " + t.content } : t);
+    ctl = new AbortController();
+    try {
+      const { text: answer } = await sample(input, {
+        cache: false, signal: ctl.signal, tools, modelTier: "quick",
+        onText: ({ text }) => { body.textContent = text; },
+      });
+      body.textContent = answer;
+      if (toolLine) toolLine.textContent = "";
+      turns.push({ role: "assistant", content: answer });
+      speak(answer);
+    } catch (e) {
+      turns.pop();
+      if (toolLine) toolLine.textContent = "";
+      body.textContent = e && e.text ? e.text : "";
+      setMode("idle");
+      if (e && e.code === "cancelled") { ui.state.textContent = "Abgebrochen"; }
+      else { warn("Fehler"); if (!body.textContent) body.textContent = ERR[e && e.code] || "Etwas ist schiefgelaufen. Bitte noch einmal versuchen."; }
+    } finally {
+      busy = false; ui.send.disabled = false; ctl = null;
+    }
+  }
+
+  // ─── Stimme (Ausgabe) ─────────────────────────────────────────
+  let browserVoice = null;
+  function pickVoice() {
+    if (!("speechSynthesis" in window)) return;
+    const vs = speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith("de"));
+    browserVoice = vs.find((v) => /male|männ|daniel|markus|yannick|conrad|google deutsch/i.test(v.name)) || vs[0] || null;
+  }
+  if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+  function stopSpeaking() {
+    try { tts && tts.stop(); } catch {}
+    try { "speechSynthesis" in window && speechSynthesis.cancel(); } catch {}
+    if (mode === "speaking") setMode("idle");
+  }
+  async function speak(text) {
+    if (!voiceOn || !text) { setMode("idle"); return; }
+    setMode("speaking");
+    if (tts) {
+      try { await tts.speak(text.slice(0, 2000), { language: "de", voice: "rounded" }); if (mode === "speaking") setMode("idle"); return; }
+      catch (e) { if (e && (e.code === "stopped" || e.code === "replaced")) return; }
+    }
+    if ("speechSynthesis" in window) {
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = "de-DE"; if (browserVoice) u.voice = browserVoice; u.rate = 1.02; u.pitch = 0.9;
+        u.onend = u.onerror = () => { if (mode === "speaking") setMode("idle"); };
+        speechSynthesis.speak(u);
+        return;
+      } catch {}
+    }
+    setMode("idle");
+  }
+
+  // ─── Diktat (Eingabe) ─────────────────────────────────────────
+  let heard = "";
+  function toggleListen() {
+    if (!dictation) { ui.msg.focus(); return; }
+    if (dictation.active()) { finishListening(); return; }
+    stopSpeaking();
+    heard = "";
+    dictation.start({ language: "de" }).catch((e) => {
+      const code = e && e.code;
+      if (code === "not_granted") { ui.mic.hidden = true; warn("Mikrofon nicht erlaubt – bitte tippen"); }
+      else if (code === "unavailable") { ui.mic.hidden = true; warn("Spracheingabe hier nicht verfügbar"); }
+      else if (code !== "stopped" && code !== "dismissed") warn("Mikrofon-Fehler");
+    });
+  }
+  async function finishListening() {
+    try { await dictation.stop(); } catch {}
+  }
+  function wireDictation(d) {
+    d.onPartial(({ text }) => { if (text) ui.msg.value = (heard + " " + text).trim(); });
+    d.onFinal(({ text }) => { heard = (heard + text).trim(); ui.msg.value = heard; });
+    d.onState(({ state, reason }) => {
+      const live = state !== "idle";
+      ui.mic.classList.toggle("live", live);
+      ui.mic.setAttribute("aria-label", live ? "Zuhören beenden und senden" : "Sprechen");
+      if (state === "listening") setMode("listening");
+      if (state === "idle") {
+        if (mode === "listening") setMode("idle");
+        if (reason === "not_granted" || reason === "unavailable") { ui.mic.hidden = true; }
+        const said = (heard || ui.msg.value).trim();
+        if ((reason === "stopped" || reason === "viewer_stopped") && said) { ui.msg.value = ""; heard = ""; ask(said); }
+      }
+    });
+  }
+
+  // ─── Bedienung ────────────────────────────────────────────────
+  ui.form.addEventListener("submit", (e) => { e.preventDefault(); const t = ui.msg.value; ui.msg.value = ""; heard = ""; ask(t); });
+  ui.mic.addEventListener("click", toggleListen);
+  ui.orb.addEventListener("click", () => {
+    if (busy && ctl) { ctl.abort(); return; }
+    if (mode === "speaking") { stopSpeaking(); return; }
+    if (dictation) toggleListen(); else ui.msg.focus();
+  });
+  ui.orb.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ui.orb.click(); } });
+  ui.voice.addEventListener("click", () => {
+    voiceOn = !voiceOn; ui.voice.setAttribute("aria-pressed", String(voiceOn));
+    try { localStorage.setItem("jarvis-voice", voiceOn ? "on" : "off"); } catch {}
+    if (!voiceOn) stopSpeaking();
+  });
+  ui.reset.addEventListener("click", () => {
+    if (ctl) ctl.abort();
+    stopSpeaking(); turns = []; setMode("idle");
+    showReply("", "Neues Gespräch. Ihre Ziele bleiben gespeichert.");
+  });
+
+  // ─── Fähigkeiten verbinden ────────────────────────────────────
+  (async () => {
+    const c = window.claude;
+    if (!c || !c.use) { ui.notice.textContent = "Öffnen Sie diese Seite über claude.ai, damit Jarvis antworten kann."; ui.notice.hidden = false; return; }
+    const [s, t, d, db, user] = await Promise.all(["sample","tts","dictation","db","user"].map((n) => c.use(n).catch(() => null)));
+    sample = s; tts = t; dictation = d;
+    if (!sample) { ui.notice.textContent = "Claude ist hier nicht verfügbar. Bitte angemeldet auf claude.ai öffnen."; ui.notice.hidden = false; }
+    if (dictation) { ui.mic.hidden = false; wireDictation(dictation); }
+    if (db && user) {
+      try {
+        const uid = await user.id();
+        if (uid) {
+          goalsCol = db.collection("data/users/" + uid);
+          let first = true;
+          const timer = setTimeout(() => { if (first) warn("Ziele laden dauert …"); }, 10000);
+          goalsCol.onSnapshot((snap) => {
+            clearTimeout(timer);
+            const remote = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+            if (first) {
+              first = false;
+              // Ziele, die vorher nur im Browser lagen, einmalig übernehmen
+              const known = new Set(remote.map((g) => g.id));
+              loadLocal().filter((g) => !known.has(g.id)).forEach((g) => { remote.push(g); const { id, ...rest } = g; goalsCol.doc(id).set(rest).catch(() => {}); });
+              if (mode === "idle") setMode("idle");
+            }
+            goals = remote; renderGoals();
+          }, () => { clearTimeout(timer); goalsCol = null; warn("Ziele nur auf diesem Gerät gespeichert"); });
+        }
+      } catch { goalsCol = null; }
+    }
+  })();
+})();
+</script>
