@@ -9,6 +9,26 @@ import { synthesize, ttsConfigured } from "./tts.js";
 
 const app = express();
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const host = process.env.HOST || "127.0.0.1";
+const password = process.env.APP_PASSWORD || "";
+
+// Online (nicht nur lokal) läuft Jarvis nur mit Passwortschutz.
+if (host !== "127.0.0.1" && host !== "localhost" && !password) {
+  console.error("  ✖  APP_PASSWORD fehlt. Ohne Passwort startet Jarvis nicht öffentlich.");
+  process.exit(1);
+}
+
+if (password) {
+  app.use((req, res, next) => {
+    const [scheme, encoded] = (req.headers.authorization || "").split(" ");
+    if (scheme === "Basic" && encoded) {
+      const decoded = Buffer.from(encoded, "base64").toString();
+      if (decoded.slice(decoded.indexOf(":") + 1) === password) return next();
+    }
+    res.set("WWW-Authenticate", 'Basic realm="Jarvis", charset="UTF-8"');
+    res.status(401).send("Passwort erforderlich");
+  });
+}
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(join(root, "public")));
@@ -84,7 +104,7 @@ app.get("/api/emails/summary", async (_req, res) => {
 });
 
 const port = Number(process.env.PORT || 3000);
-app.listen(port, "127.0.0.1", () => {
+app.listen(port, host, () => {
   console.log(`\n  J.A.R.V.I.S. online → http://localhost:${port}\n`);
   if (!process.env.ANTHROPIC_API_KEY) console.log("  ⚠  ANTHROPIC_API_KEY fehlt – bitte .env ausfüllen.");
   if (!mailConfigured()) console.log("  ⚠  E-Mail nicht eingerichtet (IMAP_HOST / MAIL_USER / MAIL_PASS).");

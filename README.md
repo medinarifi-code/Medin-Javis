@@ -76,3 +76,12 @@ public/
   app.js          Sprache, Audio-Pegel, Panels
 test/             npm test
 ```
+
+## Online betreiben (nur mit Handy, ohne Computer)
+
+1. Auf https://render.com mit GitHub anmelden.
+2. **New → Blueprint** wählen, das Repository `Medin-Javis` und den richtigen Branch auswählen.
+3. `APP_PASSWORD` (frei wählbar) und `ANTHROPIC_API_KEY` eintragen → **Apply**.
+4. Die angezeigte Adresse (`https://….onrender.com`) im Handy-Browser öffnen, Passwort eingeben (Benutzername beliebig).
+
+Hinweis: Der kostenlose Plan schläft nach 15 Minuten ohne Nutzung ein (erster Aufruf dauert dann ca. 1 Minute), und gespeicherte Ziele gehen bei einem Neustart verloren.
